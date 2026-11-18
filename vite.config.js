@@ -8,7 +8,7 @@ export default defineConfig({
     vue(),
     vueDevTools(),
   ],
-  base: '/legio-xxv/',
+  base: '/sky-map-v2/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

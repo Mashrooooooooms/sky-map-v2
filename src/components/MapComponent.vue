@@ -117,8 +117,8 @@ const gameTypes = [
   { id: "eleph", name: "Мамонт", icon: BASE + "eleph.png" },
   { id: "gig", name: "Великан", icon: BASE + "gig.png" },
   { id: "bird", name: "Фазан", icon: BASE + "bird.png" },
-  { id: "fish", name: "Рыба", icon: BASE + "fish.png" },
-  { id: "honey", name: "Мёд", icon: BASE + "honey.png" },
+  { id: "fish", name: "Рыба", icon: BASE + "fish.svg" },
+  { id: "honey", name: "Мёд", icon: BASE + "honey.svg" },
 ];
 
 const alchemyTypes = [
