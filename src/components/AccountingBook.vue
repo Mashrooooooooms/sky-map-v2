@@ -65,9 +65,18 @@
               <svg class="nav-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
               </svg>
-              <span class="nav-label">Крафты</span>
+                            <span class="nav-label">Крафты</span>
               <span class="nav-count" :class="{ ready: craftableIds.length > 0 }">{{ craftableIds.length }}</span>
             </button>
+
+
+
+
+
+
+
+
+
           </nav>
 
           <!-- ЛЕВАЯ ЧАСТЬ -->
@@ -172,6 +181,7 @@
                   </div>
                   <div class="input-group mb-2">
                     <input type="text" v-model="incomeNote" placeholder="Комментарий" @keyup.enter="addIncome" />
+                    
                   </div>
                   <button class="btn-primary w-full" @click="addIncome" :disabled="processingFinance">Добавить</button>
                 </div>
@@ -213,9 +223,13 @@
 
             <!-- ===== КРАФТЫ ===== -->
             <div v-if="activeTab === 'crafts'" class="tab-content">
-              <div class="crafts-toolbar">
+                            <div class="crafts-toolbar">
                 <h4 class="section-title" style="margin:0">Рецепты</h4>
-                <button class="btn-primary" @click="toggleRecipeForm">{{ showRecipeForm ? 'Отмена' : '+ Рецепт' }}</button>
+                <div class="crafts-tools">
+                  <input type="text" v-model="recipeSearch" placeholder="Поиск рецепта..." class="search-input" />
+                  <button class="tag" :class="{ active: onlyCraftable }" @click="onlyCraftable = !onlyCraftable">Доступные</button>
+                  <button class="btn-primary" @click="toggleRecipeForm">{{ showRecipeForm ? 'Отмена' : '+ Рецепт' }}</button>
+                </div>
               </div>
 
               <div v-if="showRecipeForm" class="card recipe-form-wide">
@@ -241,8 +255,8 @@
               </div>
 
               <!-- Сетка рецептов: собственный скролл -->
-              <div class="recipe-grid scroll-area">
-                <div v-for="recipe in allRecipes" :key="recipe.id" class="recipe-card" :class="{ 'can-craft': craftableIds.includes(recipe.id) }">
+                            <div class="recipe-grid scroll-area">
+                <div v-for="recipe in filteredRecipes" :key="recipe.id" class="recipe-card" :class="{ 'can-craft': craftableIds.includes(recipe.id) }">
                   <div class="recipe-top">
                     <div class="recipe-name">
                       {{ recipe.name }}
@@ -267,7 +281,7 @@
                     Скрафтить
                   </button>
                 </div>
-                <div v-if="allRecipes.length === 0" class="empty-state">Рецептов пока нет</div>
+                                <div v-if="filteredRecipes.length === 0" class="empty-state">Рецептов пока нет</div>
               </div>
             </div>
           </main>
@@ -281,8 +295,8 @@
               </button>
             </div>
 
-            <div class="recipe-list scroll-area">
-              <div v-for="recipe in allRecipes" :key="recipe.id" class="recipe-card" :class="{ 'can-craft': craftableIds.includes(recipe.id) }">
+                        <div class="recipe-list scroll-area">
+              <div v-for="recipe in filteredRecipes" :key="recipe.id" class="recipe-card" :class="{ 'can-craft': craftableIds.includes(recipe.id) }">
                 <div class="recipe-top">
                   <div class="recipe-name">
                     {{ recipe.name }}
@@ -300,7 +314,7 @@
                   Скрафтить
                 </button>
               </div>
-              <div v-if="allRecipes.length === 0" class="empty-state">Рецептов пока нет</div>
+              <div v-if="filteredRecipes.length === 0" class="empty-state">Рецептов пока нет</div>
             </div>
           </aside>
 
@@ -442,6 +456,9 @@ const expenseNote = ref("")
 const processingFinance = ref(false)
 
 const showRecipeForm = ref(false)
+const recipeSearch = ref("")
+const onlyCraftable = ref(false)
+
 const newRecipe = ref({ name: "", ingredients: [{ name: "", quantity: 1 }] })
 const uniqueStockNames = computed(() => [...new Set(stockItems.value.map(i => i.name))])
 
@@ -642,6 +659,19 @@ const filteredStock = computed(() => {
 
 const totalUnits = computed(() => stockItems.value.reduce((s, i) => s + (i.quantity || 0), 0))
 const emptyCount = computed(() => stockItems.value.filter(i => i.quantity === 0).length)
+
+const filteredRecipes = computed(() => {
+  let list = allRecipes.value
+  const q = recipeSearch.value.trim().toLowerCase()
+  if (q) list = list.filter(r => r.name.toLowerCase().includes(q))
+  if (onlyCraftable.value) list = list.filter(r => craftableIds.value.includes(r.id))
+  return [...list].sort((a, b) => {
+    const ca = craftableIds.value.includes(a.id) ? 0 : 1
+    const cb = craftableIds.value.includes(b.id) ? 0 : 1
+    if (ca !== cb) return ca - cb
+    return a.name.localeCompare(b.name, 'ru')
+  })
+})
 const incomeTotal = computed(() => treasury.value.history.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0))
 const expenseTotal = computed(() => treasury.value.history.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0))
 
@@ -909,7 +939,9 @@ input:focus, select:focus { border-color: var(--gold-border); }
 .data-table tr:hover { background: rgba(255,255,255,0.02); }
 
 /* ===== КРАФТЫ ===== */
-.crafts-toolbar { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.crafts-toolbar { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; gap: 12px; flex-wrap: wrap; }
+.crafts-tools { display: flex; align-items: center; gap: 8px; }
+.crafts-tools .search-input { width: 200px; }
 .recipe-form-wide { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
 .recipe-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

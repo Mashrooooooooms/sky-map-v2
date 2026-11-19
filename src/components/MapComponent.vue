@@ -9,14 +9,15 @@
   <!-- Единая панель управления (слева) -->
   <header class="top-bar">
     <!-- Логотип -->
-    <img :src="BASE + 'nirn.png'" alt="Nirn" class="logo" />
+    <!-- <img :src="BASE + 'nirn.png'" alt="Nirn" class="logo" /> -->
 
     <div class="divider"></div>
 
-    <!-- Переключатель слоёв -->
+        <!-- Переключатель слоёв -->
     <div class="layer-switch">
       <button :class="{ active: activeLayer === 'game' }" @click="setActiveLayer('game')">Дичь</button>
       <button :class="{ active: activeLayer === 'alchemy' }" @click="setActiveLayer('alchemy')">Растения</button>
+      <button :class="{ active: activeLayer === 'gathering' }" @click="setActiveLayer('gathering')">Добыча</button>
       <button :class="{ active: activeLayer === 'both' }" @click="setActiveLayer('both')">Оба</button>
     </div>
 
@@ -80,9 +81,25 @@
             <span>{{ type.name }}</span>
           </label>
         </div>
-        <div class="filter-btns">
+                <div class="filter-btns">
           <button @click="selectAllAlchemyFilters">ВСЕ</button>
           <button @click="clearAllAlchemyFilters">НИЧЕГО</button>
+        </div>
+      </div>
+
+      <!-- Фильтры добычи -->
+      <div v-if="activeLayer === 'gathering'" class="section">
+        <div class="section-title">⛏️ Добыча</div>
+        <div class="filter-grid">
+          <label v-for="type in gatheringTypes" :key="type.id" class="filter-item" :class="{ active: gatheringFilters.includes(type.id) }">
+            <input type="checkbox" :value="type.id" v-model="gatheringFilters" @change="applyFilters" />
+            <img :src="type.icon" :alt="type.name" class="white-icon" />
+            <span>{{ type.name }}</span>
+          </label>
+        </div>
+        <div class="filter-btns">
+          <button @click="selectAllGatheringFilters">ВСЕ</button>
+          <button @click="clearAllGatheringFilters">НИЧЕГО</button>
         </div>
       </div>
     </div>
@@ -107,6 +124,7 @@
     :layer-mode="activeLayer"
     :game-types="gameTypes"
     :alchemy-types="alchemyTypes"
+    :gathering-types="gatheringTypes"
     :marker-to-edit="markerToEdit"
     @close="closeModal"
     @save="handleSaveMarker"
@@ -147,9 +165,17 @@ const alchemyTypes = [
   { id: "wildberry", name: "Ягоды", icon: BASE + "wildberris.png" },
 ];
 
+const gatheringTypes = [
+  { id: "ruins", name: "Руины", icon: BASE + "ruins.webp" },
+  { id: "cave", name: "Пещеры", icon: BASE + "cave.webp" },
+  { id: "mine", name: "Шахты", icon: BASE + "mine.webp" },
+  { id: "dig", name: "Раскоп", icon: BASE + "dig.png" },
+];
+
 const toastMsg = ref("");
 const gameFilters = ref(gameTypes.map(t => t.id));
 const alchemyFilters = ref(alchemyTypes.map(t => t.id));
+const gatheringFilters = ref(gatheringTypes.map(t => t.id));
 const isLoading = ref(false);
 const isMobile = ref(false);
 const burgerOpen = ref(false);
@@ -243,12 +269,21 @@ async function loadMarkers() {
 
 function createIcon(typeId) {
   const isAlchemy = alchemyTypes.some(t => t.id === typeId);
-  const iconUrl = isAlchemy 
-    ? alchemyTypes.find(t => t.id === typeId)?.icon 
-    : (gameTypes.find(t => t.id === typeId)?.icon || BASE + "elk.png");
-  
-  const className = isAlchemy ? 'map-marker-alchemy' : 'map-marker';
-  
+  const isGathering = gatheringTypes.some(t => t.id === typeId);
+
+  let iconUrl;
+  let className;
+  if (isAlchemy) {
+    iconUrl = alchemyTypes.find(t => t.id === typeId)?.icon;
+    className = 'map-marker-alchemy';
+  } else if (isGathering) {
+    iconUrl = gatheringTypes.find(t => t.id === typeId)?.icon;
+    className = 'map-marker-gathering';
+  } else {
+    iconUrl = gameTypes.find(t => t.id === typeId)?.icon || BASE + "elk.png";
+    className = 'map-marker';
+  }
+
   return L.divIcon({
     className: "",
     html: `<div class="${className}"><img src="${iconUrl}" alt="" /></div>`,
@@ -354,10 +389,13 @@ function applyFilters() {
   leafletMarkers.forEach(({ marker, type }) => {
     let shouldShow = false;
     const isAlchemy = alchemyTypes.some(t => t.id === type);
+    const isGathering = gatheringTypes.some(t => t.id === type);
 
     if (isAlchemy && (activeLayer.value === 'alchemy' || activeLayer.value === 'both')) {
       shouldShow = alchemyFilters.value.includes(type);
-    } else if (!isAlchemy && (activeLayer.value === 'game' || activeLayer.value === 'both')) {
+    } else if (isGathering && activeLayer.value === 'gathering') {
+      shouldShow = gatheringFilters.value.includes(type);
+    } else if (!isAlchemy && !isGathering && (activeLayer.value === 'game' || activeLayer.value === 'both')) {
       shouldShow = gameFilters.value.includes(type);
     }
 
@@ -436,6 +474,8 @@ function selectAllGameFilters() { gameFilters.value = gameTypes.map(t => t.id); 
 function clearAllGameFilters() { gameFilters.value = []; applyFilters(); }
 function selectAllAlchemyFilters() { alchemyFilters.value = alchemyTypes.map(t => t.id); applyFilters(); }
 function clearAllAlchemyFilters() { alchemyFilters.value = []; applyFilters(); }
+function selectAllGatheringFilters() { gatheringFilters.value = gatheringTypes.map(t => t.id); applyFilters(); }
+function clearAllGatheringFilters() { gatheringFilters.value = []; applyFilters(); }
 
 onMounted(() => {
   window.addEventListener("resize", handleResize);
@@ -867,6 +907,21 @@ onBeforeUnmount(() => {
 .map-marker-alchemy img { 
   width: 20px; height: 20px; 
   filter: brightness(0) invert(1); 
+}
+
+/* Добыча (Зелёный) */
+.map-marker-gathering {
+  width: 36px; height: 36px;
+  background: #15803d;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+.map-marker-gathering img {
+  width: 100%; height: 100%;
+  object-fit: cover;
 }
 
 /* Стили для Popup (БЕЗ ТЕНЕЙ И ИСКАЖЕНИЙ) */

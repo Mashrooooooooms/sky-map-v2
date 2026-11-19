@@ -10,6 +10,7 @@
         <div v-if="showCategorySwitch && !markerToEdit" class="category-switch">
           <button :class="{ active: category === 'game' }" @click="category = 'game'">🏹 Дичь</button>
           <button :class="{ active: category === 'alchemy' }" @click="category = 'alchemy'">🌿 Алхимия</button>
+          <button :class="{ active: category === 'gathering' }" @click="category = 'gathering'">⛏️ Добыча</button>
         </div>
 
         <div class="field-label">Тип ресурса</div>
@@ -54,6 +55,7 @@ const props = defineProps({
   layerMode: String,
   gameTypes: Array,
   alchemyTypes: Array,
+  gatheringTypes: Array,
   markerToEdit: Object
 });
 
@@ -64,16 +66,21 @@ const selectedType = ref('');
 const title = ref('');
 const description = ref('');
 
+function detectCategory(typeId) {
+  if (props.alchemyTypes?.some(t => t.id === typeId)) return 'alchemy';
+  if (props.gatheringTypes?.some(t => t.id === typeId)) return 'gathering';
+  return 'game';
+}
+
 watch(() => props.visible, (newVal) => {
   if (newVal) {
     if (props.markerToEdit) {
-      const isAlchemy = props.alchemyTypes.some(t => t.id === props.markerToEdit.type);
-      category.value = isAlchemy ? 'alchemy' : 'game';
+      category.value = detectCategory(props.markerToEdit.type);
       selectedType.value = props.markerToEdit.type;
       title.value = props.markerToEdit.title;
       description.value = props.markerToEdit.description;
     } else {
-      category.value = 'game';
+      category.value = props.layerMode === 'gathering' ? 'gathering' : 'game';
       selectedType.value = '';
       title.value = '';
       description.value = '';
@@ -85,14 +92,19 @@ const showCategorySwitch = computed(() => props.layerMode === 'both');
 
 const currentTypeList = computed(() => {
   if (props.markerToEdit) {
-    const isAlchemy = props.alchemyTypes.some(t => t.id === props.markerToEdit.type);
-    return isAlchemy ? props.alchemyTypes : props.gameTypes;
+    const cat = detectCategory(props.markerToEdit.type);
+    if (cat === 'alchemy') return props.alchemyTypes || [];
+    if (cat === 'gathering') return props.gatheringTypes || [];
+    return props.gameTypes || [];
   }
   
-  if (props.layerMode === 'game') return props.gameTypes;
-  if (props.layerMode === 'alchemy') return props.alchemyTypes;
+  if (props.layerMode === 'game') return props.gameTypes || [];
+  if (props.layerMode === 'alchemy') return props.alchemyTypes || [];
+  if (props.layerMode === 'gathering') return props.gatheringTypes || [];
   if (props.layerMode === 'both') {
-    return category.value === 'game' ? props.gameTypes : props.alchemyTypes;
+    if (category.value === 'alchemy') return props.alchemyTypes || [];
+    if (category.value === 'gathering') return props.gatheringTypes || [];
+    return props.gameTypes || [];
   }
   return [];
 });
