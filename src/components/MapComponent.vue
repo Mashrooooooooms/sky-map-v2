@@ -171,7 +171,7 @@ function openAccounting() {
 }
 
 // ===== Секретный слой =====
-const SECRET_CODE = "KentMentol";
+const SECRET_CODE = "funnyhelmet";
 const secretUnlocked = ref(false);
 const secretCode = ref("");
 const secretInput = ref(null);

@@ -162,10 +162,6 @@
               <div class="wallet-card">
                 <div class="wallet-label">Текущий баланс</div>
                 <div class="wallet-value">{{ treasury.total }} <span>монет</span></div>
-                <div class="wallet-split">
-                  <span class="text-gold">+{{ incomeTotal }}</span>
-                  <span class="text-danger">−{{ expenseTotal }}</span>
-                </div>
               </div>
 
               <div class="grid-2col">
@@ -895,7 +891,6 @@ input:focus, select:focus { border-color: var(--gold-border); }
 .wallet-label { color: var(--muted); font-family: 'Cinzel', serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px; font-weight: 700; }
 .wallet-value { font-family: 'Cinzel', serif; font-size: 38px; color: var(--gold); font-weight: 700; line-height: 1; }
 .wallet-value span { font-size: 13px; color: var(--muted); font-family: 'Crimson Text', serif; font-weight: 400; margin-left: 6px; letter-spacing: 0.08em; text-transform: uppercase; }
-.wallet-split { display: flex; justify-content: center; gap: 24px; margin-top: 10px; font-size: 14px; font-weight: 600; }
 .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex-shrink: 0; }
 .card-title { font-family: 'Cinzel', serif; font-size: 15px; margin: 0 0 12px; font-weight: 700; letter-spacing: 0.04em; }
 .section-title { font-family: 'Cinzel', serif; font-size: 16px; color: var(--gold); margin-bottom: 0; font-weight: 700; letter-spacing: 0.04em; flex-shrink: 0; }
