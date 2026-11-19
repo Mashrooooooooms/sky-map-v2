@@ -415,7 +415,7 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue'
 const props = defineProps({ visible: Boolean })
 const emit = defineEmits(['close'])
 
-const API_BASE = 'http://89.127.206.247:3000';
+const API_BASE = 'https://89.127.206.247.nip.io';
 const LOGIN = "ЯЩЕР"
 const PASSWORD = "1234"
 

@@ -31,6 +31,21 @@
     </div>
   </header>
 
+  <!-- Секретный слой: индикатор + выход -->
+  <div v-if="secretUnlocked" class="secret-bar">
+    <span>🔒 Секретный слой</span>
+    <button @click="lockSecret">Выйти</button>
+  </div>
+
+  <!-- Скрытый ввод кодового слова -->
+  <input
+    ref="secretInput"
+    v-model="secretCode"
+    class="secret-input"
+    autocomplete="off"
+    @keyup.enter="tryUnlockSecret"
+  />
+
   <!-- Боковая панель фильтров (слева) -->
   <aside class="panel" :class="{ 'panel-open': burgerOpen || !isMobile }">
     <div class="panel-header">
@@ -99,7 +114,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, onBeforeUnmount } from "vue";
+import { onMounted, ref, onBeforeUnmount, nextTick } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import AddMarkerModal from "./AddMarkerModal.vue";
@@ -155,6 +170,51 @@ function openAccounting() {
   showAccounting.value = true;
 }
 
+// ===== Секретный слой =====
+const SECRET_CODE = "KentMentol";
+const secretUnlocked = ref(false);
+const secretCode = ref("");
+const secretInput = ref(null);
+let typedBuffer = "";
+
+function tryUnlockSecret() {
+  if (secretCode.value.trim() === SECRET_CODE) {
+    secretUnlocked.value = true;
+    secretCode.value = "";
+    typedBuffer = "";
+    toast("🔓 Секретный слой открыт");
+    loadMarkers();
+  } else {
+    secretCode.value = "";
+  }
+}
+
+function lockSecret() {
+  secretUnlocked.value = false;
+  secretCode.value = "";
+  typedBuffer = "";
+  toast("🔒 Секретный слой закрыт");
+  loadMarkers();
+}
+
+function onGlobalKeydown(e) {
+  if (secretUnlocked.value) return;
+  const tag = (e.target?.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || e.target?.isContentEditable) return;
+  if (e.key.length !== 1) return;
+
+  typedBuffer += e.key;
+  if (typedBuffer.length > SECRET_CODE.length) {
+    typedBuffer = typedBuffer.slice(-SECRET_CODE.length);
+  }
+  if (typedBuffer.toLowerCase() === SECRET_CODE.toLowerCase()) {
+    secretUnlocked.value = true;
+    typedBuffer = "";
+    toast("🔓 Секретный слой открыт");
+    loadMarkers();
+  }
+}
+
 function toast(msg) {
   toastMsg.value = msg;
   setTimeout(() => (toastMsg.value = ""), 2000);
@@ -169,7 +229,8 @@ function handleResize() {
 async function loadMarkers() {
   isLoading.value = true;
   try {
-    const res = await fetch(`${API_BASE}/api/markers`);
+    const layer = secretUnlocked.value ? "secret" : "public";
+    const res = await fetch(`${API_BASE}/api/markers?layer=${layer}`);
     const data = await res.json();
     allMarkers.value = data;
     refreshMapMarkers();
@@ -313,10 +374,14 @@ async function handleSaveMarker(markerData) {
 
     let coordsArray = typeof markerData.coords === 'string' ? JSON.parse(markerData.coords) : markerData.coords;
 
-    const res = await fetch(url, {
+        const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...markerData, coords: coordsArray })
+      body: JSON.stringify({
+        ...markerData,
+        coords: coordsArray,
+        layer: secretUnlocked.value ? "secret" : "public"
+      })
     });
     
     const json = await res.json();
@@ -374,6 +439,7 @@ function clearAllAlchemyFilters() { alchemyFilters.value = []; applyFilters(); }
 
 onMounted(() => {
   window.addEventListener("resize", handleResize);
+  window.addEventListener("keydown", onGlobalKeydown);
   handleResize();
 
   const img = new Image();
@@ -405,6 +471,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (updateInterval) clearInterval(updateInterval);
   window.removeEventListener("resize", handleResize);
+  window.removeEventListener("keydown", onGlobalKeydown);
   if (mapInstance) mapInstance.remove();
 });
 </script>
@@ -689,6 +756,49 @@ onBeforeUnmount(() => {
   }
   .logo, .divider { display: none; }
   .layer-switch { flex: 1; justify-content: center; }
+}
+
+/* ================= СЕКРЕТНЫЙ СЛОЙ ================= */
+.secret-bar {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1e1e1e;
+  border: 1px solid rgba(232, 200, 160, 0.4);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: bold 12px "Cinzel", serif;
+  color: #e8c8a0;
+}
+
+.secret-bar button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #a0a0a0;
+  padding: 4px 10px;
+  font: bold 11px "Cinzel", serif;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.secret-bar button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+}
+
+.secret-input {
+  position: fixed;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+  top: 0;
+  left: 0;
 }
 
 /* ================= ОСТАЛЬНОЕ ================= */
