@@ -82,6 +82,9 @@
     <div class="toast" v-if="toastMsg">{{ toastMsg }}</div>
   </transition>
 
+    <!-- Книга учета -->
+  <AccountingBook :visible="showAccounting" @close="showAccounting = false" />
+
   <!-- Модалка добавления/редактирования метки -->
   <AddMarkerModal
     :visible="showModal"
@@ -100,6 +103,7 @@ import { onMounted, ref, onBeforeUnmount } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import AddMarkerModal from "./AddMarkerModal.vue";
+import AccountingBook from "./AccountingBook.vue";
 
 const BASE = import.meta.env.BASE_URL;
 const API_BASE = 'https://89.127.206.247.nip.io';
@@ -146,8 +150,9 @@ const modalCoords = ref(null);
 const markerToEdit = ref(null);
 
 // Открытие Книги Учета
+const showAccounting = ref(false);
 function openAccounting() {
-  window.open('https://legion-ledger.imperial-legion-nirn.workers.dev/', '_blank');
+  showAccounting.value = true;
 }
 
 function toast(msg) {

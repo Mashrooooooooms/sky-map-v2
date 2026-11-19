@@ -1,266 +1,409 @@
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="close">
-    <div class="admin-panel">
-      
-      <!-- Шапка -->
-      <header class="admin-header">
-        <div class="header-left">
-          <h2>Книга учета</h2>
-          <span v-if="authenticated" class="status-badge">Онлайн</span>
-        </div>
-        <div class="header-right">
-          <button v-if="authenticated" class="btn-refresh" @click="refreshData" :disabled="isLoading">
-            <span class="icon">↻</span> Обновить
-          </button>
-          <button class="btn-close" @click="close">✕</button>
-        </div>
-      </header>
+  <div class="acct-root">
+    <div v-if="visible" class="modal-overlay" @click.self="close">
+      <div class="admin-panel">
 
-      <!-- Экран авторизации -->
-      <div v-if="!authenticated" class="auth-screen">
-        <div class="auth-card">
-          <h3>Вход в систему</h3>
-          <p>Введите данные для доступа к гильдии</p>
-          <input type="text" v-model="login" placeholder="Логин" @keyup.enter="checkAuth" autofocus />
-          <input type="password" v-model="password" placeholder="Пароль" @keyup.enter="checkAuth" />
-          <button class="btn-primary" @click="checkAuth">Войти</button>
-          <div v-if="errorMsg" class="auth-error">{{ errorMsg }}</div>
-        </div>
-      </div>
-
-      <!-- Основной интерфейс -->
-      <div v-else class="admin-content">
-        
-        <!-- ЛЕВАЯ ЧАСТЬ (Склад и Казна) -->
-        <main class="main-section">
-          <div class="tabs">
-            <button :class="{ active: activeTab === 'stock' }" @click="activeTab = 'stock'">📦 Склад</button>
-            <button :class="{ active: activeTab === 'treasury' }" @click="activeTab = 'treasury'">💰 Казна</button>
+        <!-- Шапка -->
+        <header class="admin-header">
+          <div class="header-left">
+            <h2>Книга учета</h2>
+            <span v-if="authenticated" class="status-badge">Онлайн</span>
           </div>
+          <div class="header-right">
+            <button v-if="authenticated" class="btn-refresh" @click="refreshData" :disabled="isLoading">
+              <svg class="icon" :class="{ spin: isLoading }" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                <path d="M16 21h5v-5"/>
+              </svg>
+              <span>Обновить</span>
+            </button>
+            <button class="btn-close" @click="close">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </header>
 
-          <!-- ===== СКЛАД ===== -->
-          <div v-if="activeTab === 'stock'" class="tab-content">
-            <!-- Форма добавления -->
-            <div class="card form-card">
-              <div class="form-row">
-                <div class="input-group">
-                  <label>Тип</label>
-                  <select v-model="newItem.type">
-                    <option value="" disabled>Выбрать</option>
-                    <option v-for="t in filterTags" :key="t" :value="t">{{ t }}</option>
+        <!-- Экран авторизации -->
+        <div v-if="!authenticated" class="auth-screen">
+          <div class="auth-card">
+            <h3>Вход в систему</h3>
+            <p>Введите данные для доступа к гильдии</p>
+            <input type="text" v-model="login" placeholder="Логин" @keyup.enter="checkAuth" autofocus />
+            <input type="password" v-model="password" placeholder="Пароль" @keyup.enter="checkAuth" />
+            <button class="btn-primary w-full" @click="checkAuth">Войти</button>
+            <div v-if="errorMsg" class="auth-error">{{ errorMsg }}</div>
+          </div>
+        </div>
+
+        <!-- Основной интерфейс -->
+        <div v-else class="admin-content">
+
+          <!-- САЙДБАР -->
+          <nav class="side-nav">
+            <button :class="{ active: activeTab === 'stock' }" @click="activeTab = 'stock'">
+              <svg class="nav-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                <line x1="12" y1="22.08" x2="12" y2="12"/>
+              </svg>
+              <span class="nav-label">Склад</span>
+              <span class="nav-count">{{ stockItems.length }}</span>
+            </button>
+            <button :class="{ active: activeTab === 'treasury' }" @click="activeTab = 'treasury'">
+              <svg class="nav-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>
+                <path d="M12 18V6"/>
+              </svg>
+              <span class="nav-label">Казна</span>
+            </button>
+            <button :class="{ active: activeTab === 'crafts' }" @click="activeTab = 'crafts'">
+              <svg class="nav-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+              </svg>
+              <span class="nav-label">Крафты</span>
+              <span class="nav-count" :class="{ ready: craftableIds.length > 0 }">{{ craftableIds.length }}</span>
+            </button>
+          </nav>
+
+          <!-- ЛЕВАЯ ЧАСТЬ -->
+          <main class="main-section">
+
+            <!-- ===== СКЛАД ===== -->
+            <div v-if="activeTab === 'stock'" class="tab-content">
+              <div class="kpi-row">
+                <div class="kpi">
+                  <span class="kpi-label">Позиций</span>
+                  <b class="kpi-value">{{ stockItems.length }}</b>
+                </div>
+                <div class="kpi">
+                  <span class="kpi-label">Всего единиц</span>
+                  <b class="kpi-value">{{ totalUnits }}</b>
+                </div>
+                <div class="kpi">
+                  <span class="kpi-label">Нулевых</span>
+                  <b class="kpi-value" :class="{ warn: emptyCount > 0 }">{{ emptyCount }}</b>
+                </div>
+                <div class="kpi">
+                  <span class="kpi-label">Казна</span>
+                  <b class="kpi-value accent">{{ treasury.total }}</b>
+                </div>
+              </div>
+
+              <div class="card form-card">
+                <div class="form-row">
+                  <div class="input-group">
+                    <label>Тип</label>
+                    <select v-model="newItem.type">
+                      <option value="" disabled>Выбрать</option>
+                      <option v-for="t in filterTags" :key="t" :value="t">{{ t }}</option>
+                    </select>
+                  </div>
+                  <div class="input-group wide">
+                    <label>Название</label>
+                    <input v-model="newItem.name" list="stock-names" type="text" placeholder="Например: Железный меч" @keyup.enter="addStockItem" />
+                    <datalist id="stock-names">
+                      <option v-for="name in uniqueStockNames" :key="name" :value="name"></option>
+                    </datalist>
+                  </div>
+                  <div class="input-group narrow">
+                    <label>Кол-во</label>
+                    <input v-model.number="newItem.quantity" type="number" min="1" @keyup.enter="addStockItem" />
+                  </div>
+                  <button class="btn-primary" @click="addStockItem" :disabled="addingItem">Добавить</button>
+                  <button class="btn-secondary" @click="openBatchModal">Партией</button>
+                </div>
+              </div>
+
+              <div class="toolbar">
+                <div class="filter-tags">
+                  <button class="tag" :class="{ active: activeTypeFilter === '' && !showEmptyOnly }"
+                    @click="activeTypeFilter = ''; showEmptyOnly = false">Все</button>
+                  <button v-for="tag in filterTags" :key="tag" class="tag"
+                    :class="{ active: activeTypeFilter === tag }"
+                    @click="activeTypeFilter = activeTypeFilter === tag ? '' : tag">{{ tag }}</button>
+                  <button class="tag" :class="{ active: showEmptyOnly }"
+                    @click="showEmptyOnly = !showEmptyOnly; activeTypeFilter = ''">Нулевые</button>
+                </div>
+                <input type="text" v-model="stockSearch" placeholder="Поиск..." class="search-input" />
+              </div>
+
+              <!-- Сетка склада: собственный скролл -->
+              <div class="stock-grid scroll-area">
+                <div v-for="item in filteredStock" :key="item.id" class="stock-card" :class="{ depleted: item.quantity === 0 }">
+                  <div class="stock-head">
+                    <span class="stock-type">{{ item.tape }}</span>
+                    <span class="badge" :class="item.quantity > 0 ? 'badge-ok' : 'badge-danger'">{{ item.quantity }}</span>
+                  </div>
+                  <div class="stock-name">{{ item.name }}</div>
+                  <div class="stock-date">{{ item.date }}</div>
+                  <div class="stock-actions">
+                    <button class="btn-icon" @click="openIncreaseDialog(item)" title="Добавить">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                    <button class="btn-icon" @click="openDecreaseDialog(item)" title="Убавить">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                    <button class="btn-icon sell" @click="openSellDialog(item)" title="Продать">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div v-if="filteredStock.length === 0" class="empty">Нет предметов</div>
+              </div>
+            </div>
+
+            <!-- ===== КАЗНА ===== -->
+            <div v-if="activeTab === 'treasury'" class="tab-content">
+              <div class="wallet-card">
+                <div class="wallet-label">Текущий баланс</div>
+                <div class="wallet-value">{{ treasury.total }} <span>монет</span></div>
+                <div class="wallet-split">
+                  <span class="text-gold">+{{ incomeTotal }}</span>
+                  <span class="text-danger">−{{ expenseTotal }}</span>
+                </div>
+              </div>
+
+              <div class="grid-2col">
+                <div class="card">
+                  <h4 class="card-title text-gold">Пополнение</h4>
+                  <div class="input-group mb-2">
+                    <input type="number" v-model.number="incomeAmount" placeholder="Сумма" />
+                  </div>
+                  <div class="input-group mb-2">
+                    <input type="text" v-model="incomeNote" placeholder="Комментарий" @keyup.enter="addIncome" />
+                  </div>
+                  <button class="btn-primary w-full" @click="addIncome" :disabled="processingFinance">Добавить</button>
+                </div>
+                <div class="card">
+                  <h4 class="card-title text-danger">Списание</h4>
+                  <div class="input-group mb-2">
+                    <input type="number" v-model.number="expenseAmount" placeholder="Сумма" />
+                  </div>
+                  <div class="input-group mb-2">
+                    <input type="text" v-model="expenseNote" placeholder="Комментарий" @keyup.enter="addExpense" />
+                  </div>
+                  <button class="btn-primary danger w-full" @click="addExpense" :disabled="processingFinance">Списать</button>
+                </div>
+              </div>
+
+              <h4 class="section-title">История операций</h4>
+              <!-- Таблица: собственный скролл + залипающая шапка -->
+              <div class="table-wrapper scroll-area">
+                <table class="data-table">
+                  <thead><tr><th>Дата</th><th>Тип</th><th>Сумма</th><th>Комментарий</th></tr></thead>
+                  <tbody>
+                    <tr v-for="op in treasury.history" :key="op.id">
+                      <td class="text-muted">{{ op.date }}</td>
+                      <td>
+                        <span class="badge" :class="op.type === 'income' ? 'badge-ok' : 'badge-danger'">
+                          {{ op.type === 'income' ? 'Приход' : 'Расход' }}
+                        </span>
+                      </td>
+                      <td class="font-bold" :class="op.type === 'income' ? 'text-gold' : 'text-danger'">
+                        {{ op.type === 'income' ? '+' : '-' }}{{ op.amount }}
+                      </td>
+                      <td class="text-muted">{{ op.note || '—' }}</td>
+                    </tr>
+                    <tr v-if="treasury.history.length === 0"><td colspan="4" class="empty">Нет операций</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ===== КРАФТЫ ===== -->
+            <div v-if="activeTab === 'crafts'" class="tab-content">
+              <div class="crafts-toolbar">
+                <h4 class="section-title" style="margin:0">Рецепты</h4>
+                <button class="btn-primary" @click="toggleRecipeForm">{{ showRecipeForm ? 'Отмена' : '+ Рецепт' }}</button>
+              </div>
+
+              <div v-if="showRecipeForm" class="card recipe-form-wide">
+                <input v-model="newRecipe.name" type="text" placeholder="Название предмета" class="mb-2" />
+                
+                <!-- Ряды ингредиентов теперь строго в одну строку -->
+                <div v-for="(ing, idx) in newRecipe.ingredients" :key="idx" class="ingredient-row">
+                  <select v-model="ing.name">
+                    <option value="" disabled>Выбрать предмет</option>
+                    <option v-for="item in uniqueStockNames" :key="item" :value="item">{{ item }}</option>
                   </select>
+                  <input type="number" v-model.number="ing.quantity" min="1" />
+                  <button class="btn-icon danger" @click="removeRecipeIngredient(idx)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
                 </div>
-                <div class="input-group wide">
-                  <label>Название</label>
-                  <input v-model="newItem.name" list="stock-names" type="text" placeholder="Например: Железный меч" />
-                  <datalist id="stock-names">
-                    <option v-for="name in uniqueStockNames" :key="name" :value="name"></option>
-                  </datalist>
+                
+                <button class="btn-secondary text-sm w-full" @click="addRecipeIngredient">+ Ингредиент</button>
+                <div class="form-actions">
+                  <button class="btn-secondary" @click="showRecipeForm = false">Отмена</button>
+                  <button class="btn-primary" @click="saveRecipe">Сохранить</button>
                 </div>
-                <div class="input-group narrow">
-                  <label>Кол-во</label>
-                  <input v-model.number="newItem.quantity" type="number" min="1" />
+              </div>
+
+              <!-- Сетка рецептов: собственный скролл -->
+              <div class="recipe-grid scroll-area">
+                <div v-for="recipe in allRecipes" :key="recipe.id" class="recipe-card" :class="{ 'can-craft': craftableIds.includes(recipe.id) }">
+                  <div class="recipe-top">
+                    <div class="recipe-name">
+                      {{ recipe.name }}
+                      <span v-if="craftableIds.includes(recipe.id)" class="badge badge-ok">Готово</span>
+                    </div>
+                    <button class="btn-icon danger" @click="deleteRecipe(recipe.id)" title="Удалить рецепт">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="recipe-ings">
+                    <span v-for="(ing, i) in recipe.ingredients" :key="i" class="ing-tag"
+                      :class="{ missing: !hasEnough(ing) }">
+                      {{ ing.name }} x{{ ing.quantity }}
+                      <em v-if="!hasEnough(ing)">({{ stockQty(ing.name) }})</em>
+                    </span>
+                  </div>
+                  <button class="btn-primary craft-btn" :disabled="!craftableIds.includes(recipe.id)"
+                    @click="openCraftDialog(recipe)">
+                    Скрафтить
+                  </button>
                 </div>
-                <button class="btn-primary" @click="addStockItem" :disabled="addingItem">Добавить</button>
-                <button class="btn-secondary" @click="openBatchModal">Партией</button>
+                <div v-if="allRecipes.length === 0" class="empty-state">Рецептов пока нет</div>
               </div>
             </div>
+          </main>
 
-            <!-- Фильтры -->
-            <div class="toolbar">
-              <div class="filter-tags">
-                <button v-for="tag in filterTags" :key="tag" class="tag"
-                  :class="{ active: activeTypeFilter === tag }"
-                  @click="activeTypeFilter = activeTypeFilter === tag ? '' : tag">{{ tag }}</button>
-                <button class="tag" :class="{ active: showEmptyOnly }"
-                  @click="showEmptyOnly = !showEmptyOnly; activeTypeFilter = ''">Нулевые остатки</button>
-              </div>
-              <input type="text" v-model="stockSearch" placeholder="Поиск..." class="search-input" />
+          <!-- ПРАВАЯ ЧАСТЬ -->
+          <aside class="craft-section" v-if="activeTab !== 'crafts'">
+            <div class="craft-header">
+              <h3>Крафты</h3>
+              <button class="btn-icon" @click="activeTab = 'crafts'" title="Все рецепты">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+              </button>
             </div>
 
-            <!-- Таблица -->
-            <div class="table-wrapper">
-              <table class="data-table">
-                <thead>
-                  <tr><th>ID</th><th>Тип</th><th>Название</th><th>Кол-во</th><th>Дата</th><th></th></tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in filteredStock" :key="item.id">
-                    <td class="text-muted">{{ item.id }}</td>
-                    <td>{{ item.tape }}</td>
-                    <td class="font-bold">{{ item.name }}</td>
-                    <td><span class="badge" :class="item.quantity > 0 ? 'badge-success' : 'badge-danger'">{{ item.quantity }}</span></td>
-                    <td class="text-muted">{{ item.date }}</td>
-                    <td class="actions">
-                      <button class="btn-icon" @click="openIncreaseDialog(item)" title="Добавить">+</button>
-                      <button class="btn-icon" @click="openDecreaseDialog(item)" title="Убавить">-</button>
-                      <button class="btn-icon sell" @click="openSellDialog(item)" title="Продать">💰</button>
-                    </td>
-                  </tr>
-                  <tr v-if="filteredStock.length === 0"><td colspan="6" class="empty">Нет предметов</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- ===== КАЗНА ===== -->
-          <div v-if="activeTab === 'treasury'" class="tab-content">
-            <div class="wallet-card">
-              <div class="wallet-label">Текущий баланс</div>
-              <div class="wallet-value">{{ treasury.total }} <span>монет</span></div>
-            </div>
-
-            <div class="grid-2col">
-              <div class="card">
-                <h4 class="card-title text-success">Пополнение</h4>
-                <div class="input-group mb-2">
-                  <input type="number" v-model.number="incomeAmount" placeholder="Сумма" />
+            <div class="recipe-list scroll-area">
+              <div v-for="recipe in allRecipes" :key="recipe.id" class="recipe-card" :class="{ 'can-craft': craftableIds.includes(recipe.id) }">
+                <div class="recipe-top">
+                  <div class="recipe-name">
+                    {{ recipe.name }}
+                    <span v-if="craftableIds.includes(recipe.id)" class="badge badge-ok">Готово</span>
+                  </div>
                 </div>
-                <div class="input-group mb-2">
-                  <input type="text" v-model="incomeNote" placeholder="Комментарий" />
+                <div class="recipe-ings">
+                  <span v-for="(ing, i) in recipe.ingredients" :key="i" class="ing-tag"
+                    :class="{ missing: !hasEnough(ing) }">
+                    {{ ing.name }} x{{ ing.quantity }}
+                  </span>
                 </div>
-                <button class="btn-primary success" @click="addIncome" :disabled="processingFinance">Добавить</button>
+                <button class="btn-primary craft-btn" :disabled="!craftableIds.includes(recipe.id)"
+                  @click="openCraftDialog(recipe)">
+                  Скрафтить
+                </button>
               </div>
-              <div class="card">
-                <h4 class="card-title text-danger">Списание</h4>
-                <div class="input-group mb-2">
-                  <input type="number" v-model.number="expenseAmount" placeholder="Сумма" />
-                </div>
-                <div class="input-group mb-2">
-                  <input type="text" v-model="expenseNote" placeholder="Комментарий" />
-                </div>
-                <button class="btn-primary danger" @click="addExpense" :disabled="processingFinance">Списать</button>
-              </div>
+              <div v-if="allRecipes.length === 0" class="empty-state">Рецептов пока нет</div>
             </div>
+          </aside>
 
-            <h4 class="section-title">История операций</h4>
-            <div class="table-wrapper">
-              <table class="data-table">
-                <thead><tr><th>Дата</th><th>Тип</th><th>Сумма</th><th>Комментарий</th></tr></thead>
-                <tbody>
-                  <tr v-for="op in treasury.history" :key="op.id">
-                    <td class="text-muted">{{ op.date }}</td>
-                    <td>
-                      <span class="badge" :class="op.type === 'income' ? 'badge-success' : 'badge-danger'">
-                        {{ op.type === 'income' ? 'Приход' : 'Расход' }}
-                      </span>
-                    </td>
-                    <td class="font-bold" :class="op.type === 'income' ? 'text-success' : 'text-danger'">
-                      {{ op.type === 'income' ? '+' : '-' }}{{ op.amount }}
-                    </td>
-                    <td class="text-muted">{{ op.note || '—' }}</td>
-                  </tr>
-                  <tr v-if="treasury.history.length === 0"><td colspan="4" class="empty">Нет операций</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </main>
-
-        <!-- ПРАВАЯ ЧАСТЬ (Крафты) -->
-        <aside class="craft-section">
-          <div class="craft-header">
-            <h3>⚒️ Крафты</h3>
-            <button class="btn-icon" @click="toggleRecipeForm" title="Новый рецепт">+</button>
-          </div>
-
-          <!-- Форма создания рецепта -->
-          <div v-if="showRecipeForm" class="recipe-form">
-            <input v-model="newRecipe.name" type="text" placeholder="Название предмета" class="mb-2" />
-            <div v-for="(ing, idx) in newRecipe.ingredients" :key="idx" class="ingredient-row">
-              <select v-model="ing.name" class="flex-1">
-                <option value="" disabled>Выбрать предмет</option>
-                <option v-for="item in uniqueStockNames" :key="item" :value="item">{{ item }}</option>
-              </select>
-              <input type="number" v-model.number="ing.quantity" min="1" class="w-16" />
-              <button class="btn-icon danger" @click="removeRecipeIngredient(idx)">✕</button>
-            </div>
-            <button class="btn-secondary text-sm w-full" @click="addRecipeIngredient">+ Ингредиент</button>
-            <div class="form-actions">
-              <button class="btn-secondary" @click="showRecipeForm = false">Отмена</button>
-              <button class="btn-primary" @click="saveRecipe">Сохранить</button>
-            </div>
-          </div>
-
-          <!-- Список рецептов -->
-          <div class="recipe-list">
-            <div v-for="recipe in allRecipes" :key="recipe.id" class="recipe-card" :class="{ 'can-craft': craftableIds.includes(recipe.id) }">
-              <div class="recipe-top">
-                <div class="recipe-name">
-                  {{ recipe.name }}
-                  <span v-if="craftableIds.includes(recipe.id)" class="badge badge-success">Готово</span>
-                </div>
-                <button class="btn-icon danger" @click="deleteRecipe(recipe.id)" title="Удалить рецепт">🗑️</button>
-              </div>
-              <div class="recipe-ings">
-                <span v-for="(ing, i) in recipe.ingredients" :key="i" class="ing-tag">
-                  {{ ing.name }} x{{ ing.quantity }}
-                </span>
-              </div>
-            </div>
-            <div v-if="allRecipes.length === 0" class="empty-state">Рецептов пока нет</div>
-          </div>
-        </aside>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- ========== МОДАЛКИ ========== -->
-  <!-- Партия -->
-  <div v-if="batchModalVisible" class="modal-overlay nested" @click.self="closeBatchModal">
-    <div class="modal-card">
-      <h3>Добавить партией</h3>
-      <div class="batch-list">
-        <div v-for="(item,idx) in batchItems" :key="idx" class="batch-row">
-          <select v-model="item.type"><option value="" disabled>Тип</option><option v-for="t in filterTags" :value="t">{{ t }}</option></select>
-          <input v-model="item.name" list="stock-names" type="text" placeholder="Название" />
-          <input v-model.number="item.quantity" type="number" min="1" placeholder="Кол-во" />
-          <button class="btn-icon danger" @click="removeBatchRow(idx)">✕</button>
         </div>
       </div>
-      <button class="btn-secondary mb-4" @click="addBatchRow">+ Строка</button>
-      <div class="form-actions">
-        <button class="btn-secondary" @click="closeBatchModal">Отмена</button>
-        <button class="btn-primary" @click="submitBatch" :disabled="batchSubmitting">Сохранить всё</button>
+    </div>
+
+    <!-- ========== МОДАЛКИ ========== -->
+    <!-- Партия -->
+    <div v-if="batchModalVisible" class="modal-overlay nested" @click.self="closeBatchModal">
+      <div class="modal-card">
+        <h3>Добавить партией</h3>
+        <div class="batch-list scroll-area">
+          <!-- Ряды партии теперь строго в одну строку -->
+          <div v-for="(item,idx) in batchItems" :key="idx" class="batch-row">
+            <select v-model="item.type">
+              <option value="" disabled>Тип</option>
+              <option v-for="t in filterTags" :value="t">{{ t }}</option>
+            </select>
+            <input v-model="item.name" list="stock-names" type="text" placeholder="Название" />
+            <input v-model.number="item.quantity" type="number" min="1" placeholder="Кол-во" />
+            <button class="btn-icon danger" @click="removeBatchRow(idx)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+        <button class="btn-secondary mb-4 w-full" @click="addBatchRow">+ Строка</button>
+        <div class="form-actions">
+          <button class="btn-secondary" @click="closeBatchModal">Отмена</button>
+          <button class="btn-primary" @click="submitBatch" :disabled="batchSubmitting">Сохранить всё</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Продажа -->
-  <div v-if="sellDialog.visible" class="modal-overlay nested" @click.self="closeSellDialog">
-    <div class="modal-card">
-      <h3>Продажа: {{ sellDialog.itemName }}</h3>
-      <div class="input-group"><label>Кол-во (макс. {{ sellDialog.maxQuantity }})</label><input type="number" v-model.number="sellDialog.quantity" /></div>
-      <div class="input-group"><label>Сумма</label><input type="number" v-model.number="sellDialog.amount" /></div>
-      <div v-if="sellDialog.error" class="auth-error">{{ sellDialog.error }}</div>
-      <div class="form-actions">
-        <button class="btn-secondary" @click="closeSellDialog">Отмена</button>
-        <button class="btn-primary success" @click="confirmSell">Продать</button>
+    <!-- Продажа -->
+    <div v-if="sellDialog.visible" class="modal-overlay nested" @click.self="closeSellDialog">
+      <div class="modal-card">
+        <h3>Продажа: {{ sellDialog.itemName }}</h3>
+        <div class="input-group"><label>Кол-во (макс. {{ sellDialog.maxQuantity }})</label><input type="number" v-model.number="sellDialog.quantity" /></div>
+        <div class="input-group"><label>Сумма</label><input type="number" v-model.number="sellDialog.amount" /></div>
+        <div v-if="sellDialog.error" class="auth-error">{{ sellDialog.error }}</div>
+        <div class="form-actions">
+          <button class="btn-secondary" @click="closeSellDialog">Отмена</button>
+          <button class="btn-primary" @click="confirmSell">Продать</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Изменение кол-ва (Инкремент) -->
-  <div v-if="increaseDialog.visible" class="modal-overlay nested" @click.self="closeIncreaseDialog">
-    <div class="modal-card">
-      <h3>Добавить: {{ increaseDialog.itemName }}</h3>
-      <div class="input-group"><label>Кол-во</label><input type="number" v-model.number="increaseDialog.quantity" /></div>
-      <div class="form-actions">
-        <button class="btn-secondary" @click="closeIncreaseDialog">Отмена</button>
-        <button class="btn-primary" @click="confirmIncrease">Применить</button>
+    <!-- Крафт -->
+    <div v-if="craftDialog.visible" class="modal-overlay nested" @click.self="closeCraftDialog">
+      <div class="modal-card">
+        <h3>Скрафтить: {{ craftDialog.recipeName }}</h3>
+        <div class="craft-preview">
+          <span v-for="(ing, i) in craftDialog.ingredients" :key="i" class="ing-tag"
+            :class="{ missing: stockQty(ing.name) < ing.quantity * craftDialog.quantity }">
+            {{ ing.name }} x{{ ing.quantity * craftDialog.quantity }}
+            <em>({{ stockQty(ing.name) }})</em>
+          </span>
+        </div>
+        <div class="input-group mb-2">
+          <label>Тип создаваемого предмета</label>
+          <select v-model="craftDialog.type">
+            <option value="" disabled>Выбрать</option>
+            <option v-for="t in filterTags" :key="t" :value="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="input-group mb-2">
+          <label>Кол-во</label>
+          <input type="number" v-model.number="craftDialog.quantity" min="1" />
+        </div>
+        <div v-if="craftDialog.error" class="auth-error">{{ craftDialog.error }}</div>
+        <div class="form-actions">
+          <button class="btn-secondary" @click="closeCraftDialog">Отмена</button>
+          <button class="btn-primary" @click="confirmCraft" :disabled="craftDialog.processing">Создать</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Изменение кол-ва (Декремент) -->
-  <div v-if="decreaseDialog.visible" class="modal-overlay nested" @click.self="closeDecreaseDialog">
-    <div class="modal-card">
-      <h3>Убавить: {{ decreaseDialog.itemName }}</h3>
-      <div class="input-group"><label>Кол-во (макс. {{ decreaseDialog.maxQuantity }})</label><input type="number" v-model.number="decreaseDialog.quantity" /></div>
-      <div class="form-actions">
-        <button class="btn-secondary" @click="closeDecreaseDialog">Отмена</button>
-        <button class="btn-primary danger" @click="confirmDecrease">Списать</button>
+    <!-- Инкремент -->
+    <div v-if="increaseDialog.visible" class="modal-overlay nested" @click.self="closeIncreaseDialog">
+      <div class="modal-card">
+        <h3>Добавить: {{ increaseDialog.itemName }}</h3>
+        <div class="input-group"><label>Кол-во</label><input type="number" v-model.number="increaseDialog.quantity" /></div>
+        <div class="form-actions">
+          <button class="btn-secondary" @click="closeIncreaseDialog">Отмена</button>
+          <button class="btn-primary" @click="confirmIncrease">Применить</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Декремент -->
+    <div v-if="decreaseDialog.visible" class="modal-overlay nested" @click.self="closeDecreaseDialog">
+      <div class="modal-card">
+        <h3>Убавить: {{ decreaseDialog.itemName }}</h3>
+        <div class="input-group"><label>Кол-во (макс. {{ decreaseDialog.maxQuantity }})</label><input type="number" v-model.number="decreaseDialog.quantity" /></div>
+        <div class="form-actions">
+          <button class="btn-secondary" @click="closeDecreaseDialog">Отмена</button>
+          <button class="btn-primary danger" @click="confirmDecrease">Списать</button>
+        </div>
       </div>
     </div>
   </div>
@@ -276,7 +419,6 @@ const API_BASE = 'http://89.127.206.247:3000';
 const LOGIN = "ЯЩЕР"
 const PASSWORD = "1234"
 
-// Состояние
 const authenticated = ref(false)
 const login = ref("")
 const password = ref("")
@@ -290,7 +432,6 @@ const treasury = ref({ total: 0, history: [] })
 const allRecipes = ref([])
 const craftableIds = ref([])
 
-// Склад
 const filterTags = ["Оружие", "Расходник", "Ресурс"]
 const activeTypeFilter = ref("")
 const showEmptyOnly = ref(false)
@@ -298,27 +439,24 @@ const stockSearch = ref("")
 const newItem = ref({ type: "Ресурс", name: "", quantity: 1 })
 const addingItem = ref(false)
 
-// Казна
 const incomeAmount = ref(null)
 const expenseAmount = ref(null)
 const incomeNote = ref("")
 const expenseNote = ref("")
 const processingFinance = ref(false)
 
-// Рецепты
 const showRecipeForm = ref(false)
 const newRecipe = ref({ name: "", ingredients: [{ name: "", quantity: 1 }] })
 const uniqueStockNames = computed(() => [...new Set(stockItems.value.map(i => i.name))])
 
-// Модалки
 const sellDialog = ref({ visible: false, itemId: null, itemName: "", maxQuantity: 0, quantity: 1, amount: 0, error: "" })
 const increaseDialog = ref({ visible: false, itemId: null, itemName: "", itemType: "", quantity: 1 })
 const decreaseDialog = ref({ visible: false, itemId: null, itemName: "", maxQuantity: 0, quantity: 1 })
 const batchModalVisible = ref(false)
 const batchItems = ref([])
 const batchSubmitting = ref(false)
+const craftDialog = ref({ visible: false, recipeId: null, recipeName: "", ingredients: [], type: "", quantity: 1, error: "", processing: false })
 
-// Нормализация названия (ЖЕЛЕзный Меч -> Железный меч)
 function getCanonicalName(inputName) {
   if (!inputName || !inputName.trim()) return "";
   const lower = inputName.trim().toLowerCase();
@@ -326,7 +464,6 @@ function getCanonicalName(inputName) {
   return found ? found.name : inputName.trim();
 }
 
-// API
 async function fetchData() {
   isLoading.value = true
   try {
@@ -335,19 +472,15 @@ async function fetchData() {
       fetch(`${API_BASE}/api/recipes`),
       fetch(`${API_BASE}/api/recipes/craftable`)
     ]);
-    
     const acc = await accRes.json()
     stockItems.value = acc.stock || []
     treasury.value = { total: acc.total || 0, history: acc.history || [] }
-    
     allRecipes.value = await recsRes.json()
     const craftable = await craftRes.json()
     craftableIds.value = craftable.map(c => c.id)
-    
   } catch (e) { console.error(e); errorMsg.value = "Ошибка загрузки данных" } finally { isLoading.value = false }
 }
 
-// Авторизация
 function checkAuth() {
   if (login.value === LOGIN && password.value === PASSWORD) {
     authenticated.value = true
@@ -361,13 +494,10 @@ function checkAuth() {
   }
 }
 
-// Склад
 async function addStockItem() {
   if (!newItem.value.name || newItem.value.quantity < 1) return alert("Заполните название и количество")
   addingItem.value = true
-  // Нормализуем имя перед отправкой
   const canonicalName = getCanonicalName(newItem.value.name)
-  
   try {
     await fetch(`${API_BASE}/api/accounting/stock`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -379,7 +509,6 @@ async function addStockItem() {
   } catch (e) { alert("Ошибка при добавлении") } finally { addingItem.value = false }
 }
 
-// Казна
 async function addIncome() {
   if (!incomeAmount.value) return
   processingFinance.value = true
@@ -400,12 +529,10 @@ async function addExpense() {
   await fetchData(); expenseAmount.value = null; expenseNote.value = ""; processingFinance.value = false
 }
 
-// Рецепты
 async function saveRecipe() {
   if (!newRecipe.value.name.trim()) return alert("Введите название")
   const validIngs = newRecipe.value.ingredients.filter(i => i.name && i.quantity > 0)
   if (!validIngs.length) return alert("Добавьте ингредиенты")
-  
   await fetch(`${API_BASE}/api/recipes`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: newRecipe.value.name, ingredients: validIngs })
@@ -428,7 +555,6 @@ function toggleRecipeForm() {
 function addRecipeIngredient() { newRecipe.value.ingredients.push({ name: "", quantity: 1 }) }
 function removeRecipeIngredient(i) { newRecipe.value.ingredients.splice(i, 1) }
 
-// Модалки
 function openSellDialog(item) { sellDialog.value = { visible: true, itemId: item.id, itemName: item.name, maxQuantity: item.quantity, quantity: 1, amount: 0, error: "" } }
 function closeSellDialog() { sellDialog.value.visible = false }
 async function confirmSell() {
@@ -460,7 +586,35 @@ async function confirmDecrease() {
   await fetchData(); closeDecreaseDialog()
 }
 
-// Партия
+function openCraftDialog(recipe) {
+  craftDialog.value = { visible: true, recipeId: recipe.id, recipeName: recipe.name, ingredients: recipe.ingredients || [], type: "", quantity: 1, error: "", processing: false }
+}
+function closeCraftDialog() { craftDialog.value.visible = false }
+
+async function confirmCraft() {
+  const d = craftDialog.value
+  if (!d.type) return d.error = "Выберите тип предмета"
+  if (!d.quantity || d.quantity < 1) return d.error = "Укажите количество"
+  const lacking = d.ingredients.filter(ing => stockQty(ing.name) < ing.quantity * d.quantity)
+  if (lacking.length) return d.error = "Недостаточно: " + lacking.map(i => i.name).join(", ")
+  d.processing = true
+  d.error = ""
+  try {
+    const res = await fetch(`${API_BASE}/api/recipes/${d.recipeId}/craft`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: d.type, quantity: d.quantity })
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`)
+    await fetchData()
+    closeCraftDialog()
+  } catch (e) {
+    d.error = "Ошибка крафта: " + e.message
+  } finally {
+    d.processing = false
+  }
+}
+
 function openBatchModal() { batchItems.value = [{ type: "Ресурс", name: "", quantity: 1 }]; batchModalVisible.value = true }
 function closeBatchModal() { batchModalVisible.value = false }
 function addBatchRow() { batchItems.value.push({ type: "Ресурс", name: "", quantity: 1 }) }
@@ -468,13 +622,7 @@ function removeBatchRow(i) { batchItems.value.splice(i, 1) }
 async function submitBatch() {
   const valid = batchItems.value.filter(i => i.name && i.quantity > 0)
   if (!valid.length) return
-  
-  // Нормализуем имена в партии
-  const normalized = valid.map(i => ({
-    ...i,
-    name: getCanonicalName(i.name)
-  }))
-
+  const normalized = valid.map(i => ({ ...i, name: getCanonicalName(i.name) }))
   batchSubmitting.value = true
   await fetch(`${API_BASE}/api/accounting/stock`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -496,6 +644,17 @@ const filteredStock = computed(() => {
   return f.sort((a,b) => b.id - a.id)
 })
 
+const totalUnits = computed(() => stockItems.value.reduce((s, i) => s + (i.quantity || 0), 0))
+const emptyCount = computed(() => stockItems.value.filter(i => i.quantity === 0).length)
+const incomeTotal = computed(() => treasury.value.history.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0))
+const expenseTotal = computed(() => treasury.value.history.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0))
+
+function stockQty(name) {
+  const found = stockItems.value.find(i => i.name.toLowerCase() === String(name).toLowerCase())
+  return found ? found.quantity : 0
+}
+function hasEnough(ing) { return stockQty(ing.name) >= ing.quantity }
+
 watch(() => props.visible, (val) => {
   if (!val) {
     authenticated.value = false; login.value = ""; password.value = ""
@@ -507,136 +666,363 @@ function close() { emit('close') }
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Crimson+Text:ital@0;1&family=Inter:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap");
 
-/* ===== БАЗОВЫЕ ===== */
+.acct-root {
+  --bg-app: #141414;
+  --bg-panel: #1e1e1e;
+  --bg-input: #262626;
+  --border: rgba(255, 255, 255, 0.15);
+  --border-strong: rgba(255, 255, 255, 0.3);
+  --text: #e0e0e0;
+  --muted: #a0a0a0;
+  --gold: #e8c8a0;
+  --gold-dim: rgba(232, 200, 160, 0.14);
+  --gold-border: rgba(232, 200, 160, 0.35);
+  --red: #ef6a6a;
+  --red-dim: rgba(185, 28, 28, 0.2);
+
+  color-scheme: dark;
+  font-family: 'Crimson Text', serif;
+  color: var(--text);
+}
+
 .modal-overlay {
-  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-  background: #121212; z-index: 10000; display: flex; align-items: center; justify-content: center;
-  font-family: 'Inter', sans-serif;
+  position: fixed; inset: 0;
+  background: var(--bg-app);
+  z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
 }
 .admin-panel {
-  width: 100vw; height: 100vh; background: #121212;
-  display: flex; flex-direction: column; overflow: hidden; color: #e0e0e0;
+  width: 100vw; height: 100vh; background: var(--bg-app);
+  display: flex; flex-direction: column; overflow: hidden;
 }
+
+/* ===== СКРОЛЛБАРЫ ===== */
+.scroll-area { overflow-y: auto; min-height: 0; }
+.scroll-area::-webkit-scrollbar { width: 7px; }
+.scroll-area::-webkit-scrollbar-track { background: transparent; }
+.scroll-area::-webkit-scrollbar-thumb { background: rgba(232, 200, 160, 0.22); border-radius: 4px; }
+.scroll-area::-webkit-scrollbar-thumb:hover { background: rgba(232, 200, 160, 0.45); }
+.scroll-area { scrollbar-width: thin; scrollbar-color: rgba(232,200,160,0.25) transparent; }
 
 /* ===== ШАПКА ===== */
 .admin-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 16px 24px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a;
+  padding: 14px 24px; background: var(--bg-panel);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
-.header-left { display: flex; align-items: center; gap: 12px; }
-.header-left h2 { margin: 0; font-family: 'Cinzel', serif; color: #e8c8a0; font-size: 20px; }
-.status-badge { background: rgba(44, 110, 44, 0.2); color: #80c080; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
-.header-right { display: flex; gap: 12px; align-items: center; }
-.btn-refresh { background: #2a2a2a; border: 1px solid #333; color: #ccc; padding: 8px 16px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; transition: 0.2s; }
-.btn-refresh:hover { background: #333; color: #fff; }
-.btn-close { background: transparent; border: none; color: #888; font-size: 24px; cursor: pointer; padding: 0 8px; transition: 0.2s; }
-.btn-close:hover { color: #fff; }
+.header-left { display: flex; align-items: center; gap: 14px; }
+.header-left h2 {
+  margin: 0; font-family: 'Cinzel', serif; color: var(--gold);
+  font-size: 20px; font-weight: 700; letter-spacing: 0.04em;
+}
+.status-badge {
+  background: var(--gold-dim); color: var(--gold);
+  padding: 4px 10px; border: 1px solid var(--gold-border);
+  border-radius: 6px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; font-family: 'Cinzel', serif;
+}
+.header-right { display: flex; gap: 10px; align-items: center; }
+.btn-refresh, .btn-close {
+  background: var(--bg-input); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  font-family: 'Cinzel', serif; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; transition: all 0.2s ease;
+}
+.btn-refresh { padding: 8px 14px; }
+.btn-close { padding: 8px; }
+.btn-refresh:hover, .btn-close:hover { border-color: var(--gold-border); color: var(--gold); }
+.btn-refresh:disabled { opacity: 0.4; cursor: not-allowed; }
+.icon.spin { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ===== АВТОРИЗАЦИЯ ===== */
 .auth-screen { flex: 1; display: flex; align-items: center; justify-content: center; }
-.auth-card { background: #1a1a1a; padding: 40px; border-radius: 16px; border: 1px solid #2a2a2a; width: 340px; text-align: center; }
-.auth-card h3 { margin: 0 0 8px; font-family: 'Cinzel', serif; color: #e8c8a0; }
-.auth-card p { color: #888; margin-bottom: 24px; font-size: 14px; }
-.auth-card input { width: 100%; padding: 12px; background: #0d0d0d; border: 1px solid #333; border-radius: 8px; color: #fff; margin-bottom: 12px; font-size: 14px; outline: none; transition: 0.2s; }
-.auth-card input:focus { border-color: #e8c8a0; }
-.auth-error { color: #ff6b6b; font-size: 13px; margin-top: 12px; }
+.auth-card {
+  background: var(--bg-panel); padding: 36px; border-radius: 10px;
+  border: 1px solid var(--border); width: 360px; text-align: center;
+}
+.auth-card h3 { margin: 0 0 6px; font-family: 'Cinzel', serif; color: var(--gold); font-size: 22px; font-weight: 700; }
+.auth-card p { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
+.auth-card input {
+  width: 100%; padding: 12px 14px; background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); margin-bottom: 14px; font-size: 15px; outline: none;
+  transition: border-color 0.2s; font-family: 'Crimson Text', serif; box-sizing: border-box;
+}
+.auth-card input::placeholder { color: var(--muted); }
+.auth-card input:focus { border-color: var(--gold-border); }
+.auth-error {
+  color: var(--red); font-size: 13px; margin-top: 14px; font-weight: 600;
+  background: var(--red-dim); padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(239,106,106,0.25);
+}
 
-/* ===== ОСНОВНОЙ КОНТЕНТ ===== */
-.admin-content { flex: 1; display: grid; grid-template-columns: 1fr 380px; overflow: hidden; }
-.main-section { padding: 24px; overflow-y: auto; border-right: 1px solid #2a2a2a; }
-.craft-section { background: #161616; display: flex; flex-direction: column; overflow: hidden; }
+/* ===== КАРКАС ===== */
+.admin-content { flex: 1; display: grid; grid-template-columns: 200px 1fr 300px; overflow: hidden; min-height: 0; }
+.main-section {
+  padding: 20px 24px; overflow: hidden; min-height: 0;
+  border-right: 1px solid var(--border); background: var(--bg-app);
+  display: flex; flex-direction: column;
+}
+.tab-content { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 16px; }
+.craft-section { background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
 
-/* ===== ТАБЫ ===== */
-.tabs { display: flex; gap: 8px; margin-bottom: 24px; }
-.tabs button { background: #1a1a1a; border: 1px solid #2a2a2a; padding: 10px 24px; border-radius: 8px; color: #aaa; cursor: pointer; font-family: 'Cinzel', serif; font-size: 14px; transition: 0.2s; }
-.tabs button:hover { color: #e8c8a0; border-color: #444; }
-.tabs button.active { background: #e8c8a0; color: #111; border-color: #e8c8a0; font-weight: bold; }
+/* ===== САЙДБАР ===== */
+.side-nav { background: var(--bg-panel); border-right: 1px solid var(--border); padding: 16px 10px; display: flex; flex-direction: column; gap: 4px; }
+.side-nav button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  padding: 10px 12px; color: var(--muted); cursor: pointer; transition: all 0.2s ease;
+  font-family: 'Cinzel', serif; font-size: 12px; font-weight: 600; text-align: left;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+.side-nav button:hover { color: var(--text); background: var(--bg-input); }
+.side-nav button.active { background: var(--gold-dim); color: var(--gold); border-color: var(--gold-border); }
+.nav-ico { opacity: 0.7; flex-shrink: 0; }
+.side-nav button.active .nav-ico { opacity: 1; }
+.nav-label { flex: 1; }
+.nav-count {
+  background: var(--bg-input); color: var(--muted); font-size: 11px; padding: 1px 7px;
+  border-radius: 10px; font-weight: 700; border: 1px solid var(--border);
+}
+.nav-count.ready { background: var(--gold-dim); color: var(--gold); border-color: var(--gold-border); }
 
-/* ===== КАРТОЧКИ И ФОРМЫ ===== */
-.card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
-.form-row { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
-.input-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 120px; }
+/* ===== KPI ===== */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; flex-shrink: 0; }
+.kpi {
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 16px; display: flex; flex-direction: column; gap: 4px;
+}
+.kpi-label { font-family: 'Cinzel', serif; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; }
+.kpi-value { font-family: 'Cinzel', serif; font-size: 22px; color: var(--text); font-weight: 700; line-height: 1; }
+.kpi-value.warn { color: var(--red); }
+.kpi-value.accent { color: var(--gold); }
+
+/* ===== ФОРМЫ / КАРТОЧКИ ===== */
+.card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; flex-shrink: 0; }
+.form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.input-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 110px; }
 .input-group.wide { flex: 2; }
-.input-group.narrow { flex: 0.5; min-width: 80px; }
-.input-group label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-input, select { background: #0d0d0d; border: 1px solid #333; border-radius: 8px; padding: 12px; color: #fff; font-size: 14px; outline: none; transition: 0.2s; width: 100%; }
-input:focus, select:focus { border-color: #e8c8a0; }
-.btn-primary { background: #e8c8a0; border: none; padding: 12px 24px; border-radius: 8px; color: #111; font-weight: 600; cursor: pointer; transition: 0.2s; height: 42px; }
-.btn-primary:hover { background: #f0d5b5; }
-.btn-primary.success { background: #2c6e2c; color: #fff; }
-.btn-primary.danger { background: #8b3a2a; color: #fff; }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-secondary { background: #2a2a2a; border: 1px solid #333; padding: 12px 24px; border-radius: 8px; color: #ccc; cursor: pointer; transition: 0.2s; height: 42px; }
-.btn-secondary:hover { background: #333; color: #fff; }
+.input-group.narrow { flex: 0.4; min-width: 70px; }
+.input-group label { font-family: 'Cinzel', serif; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700; }
 
-/* ===== ТУЛБАР И ТАБЛИЦА ===== */
-.toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
-.filter-tags { display: flex; gap: 8px; }
-.tag { background: #1a1a1a; border: 1px solid #333; padding: 6px 16px; border-radius: 20px; color: #888; cursor: pointer; font-size: 13px; transition: 0.2s; }
-.tag:hover { border-color: #555; color: #ccc; }
-.tag.active { background: #e8c8a0; color: #111; border-color: #e8c8a0; font-weight: 600; }
-.search-input { width: 250px; }
-.table-wrapper { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; overflow: hidden; }
-.data-table { width: 100%; border-collapse: collapse; text-align: left; }
-.data-table th { background: #222; padding: 14px 16px; font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; border-bottom: 1px solid #333; }
-.data-table td { padding: 14px 16px; border-bottom: 1px solid #2a2a2a; font-size: 14px; }
-.data-table tr:last-child td { border-bottom: none; }
-.data-table tr:hover { background: rgba(255,255,255,0.02); }
-.text-muted { color: #666; font-size: 13px; }
-.font-bold { font-weight: 600; color: #fff; }
-.badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-.badge-success { background: rgba(44, 110, 44, 0.2); color: #80c080; }
-.badge-danger { background: rgba(139, 58, 42, 0.2); color: #ff8a65; }
-.text-success { color: #80c080; }
-.text-danger { color: #ff8a65; }
-.actions { display: flex; gap: 6px; }
-.btn-icon { width: 32px; height: 32px; border-radius: 6px; background: #2a2a2a; border: 1px solid #333; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: 0.2s; }
-.btn-icon:hover { background: #333; color: #fff; }
-.btn-icon.danger { color: #ff8a65; }
-.btn-icon.sell { color: #e8c8a0; }
-.empty { text-align: center; padding: 40px; color: #666; font-style: italic; }
+/* Глобальные стили инпутов */
+input, select {
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px;
+  padding: 9px 12px; color: var(--text); font-size: 14px; outline: none;
+  transition: border-color 0.2s; width: 100%; font-family: 'Crimson Text', serif; box-sizing: border-box;
+}
+input::placeholder { color: var(--muted); }
+input:focus, select:focus { border-color: var(--gold-border); }
+
+.btn-primary {
+  background: var(--gold); border: 1px solid var(--gold); padding: 9px 18px;
+  border-radius: 6px; color: #1e1e1e; font-weight: 700; cursor: pointer;
+  transition: all 0.2s ease; height: 38px; font-size: 12px;
+  letter-spacing: 0.08em; text-transform: uppercase; font-family: 'Cinzel', serif;
+}
+.btn-primary:hover { background: transparent; color: var(--gold); }
+.btn-primary.danger { background: #b91c1c; border-color: #b91c1c; color: #fff; }
+.btn-primary.danger:hover { background: transparent; color: var(--red); }
+.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-secondary {
+  background: transparent; border: 1px solid var(--border); padding: 9px 18px;
+  border-radius: 6px; color: var(--muted); cursor: pointer; transition: all 0.2s ease;
+  height: 38px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+  font-weight: 700; font-family: 'Cinzel', serif;
+}
+.btn-secondary:hover { border-color: var(--gold-border); color: var(--gold); }
+
+/* ===== ТУЛБАР ===== */
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; flex-shrink: 0; }
+.filter-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag {
+  background: transparent; border: 1px solid var(--border); padding: 7px 12px; border-radius: 6px;
+  color: var(--muted); cursor: pointer; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  transition: all 0.2s ease; font-weight: 600; font-family: 'Cinzel', serif;
+}
+.tag:hover { border-color: var(--border-strong); color: var(--text); }
+.tag.active { background: var(--gold); color: #1e1e1e; border-color: var(--gold); font-weight: 700; }
+.search-input { width: 220px; }
+
+/* ===== СКЛАД ===== */
+.stock-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px; align-content: start; flex: 1; padding-right: 6px;
+}
+.stock-card {
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
+  transition: border-color 0.2s ease;
+}
+.stock-card:hover { border-color: var(--gold-border); }
+.stock-card.depleted { border-color: rgba(239,106,106,0.4); }
+.stock-card.depleted .stock-name { color: var(--muted); }
+.stock-head { display: flex; justify-content: space-between; align-items: center; }
+.stock-type {
+  font-family: 'Cinzel', serif; font-size: 9px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.1em; font-weight: 700; background: var(--bg-input); padding: 2px 6px; border-radius: 4px;
+}
+.stock-name { font-weight: 600; color: var(--text); font-size: 16px; line-height: 1.2; }
+.stock-date { font-size: 11px; color: var(--muted); }
+.stock-actions { display: flex; gap: 6px; margin-top: 4px; }
+
+/* ===== БЕЙДЖИ / ИКОНКИ ===== */
+.badge { padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; font-family: 'Cinzel', serif; }
+.badge-ok { background: var(--gold-dim); color: var(--gold); border: 1px solid var(--gold-border); }
+.badge-danger { background: var(--red-dim); color: var(--red); border: 1px solid rgba(239,106,106,0.3); }
+.text-gold { color: var(--gold); }
+.text-danger { color: var(--red); }
+.text-muted { color: var(--muted); }
+.font-bold { font-weight: 600; color: var(--text); }
+.btn-icon {
+  width: 28px; height: 28px; border-radius: 6px; background: var(--bg-input);
+  border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; flex-shrink: 0;
+}
+.btn-icon:hover { border-color: var(--gold-border); color: var(--gold); }
+.btn-icon.sell { color: var(--gold); border-color: var(--gold-border); }
+.btn-icon.danger { color: var(--red); }
+.btn-icon.danger:hover { border-color: var(--red); background: var(--red-dim); color: var(--red); }
+.empty { grid-column: 1 / -1; text-align: center; padding: 32px; color: var(--muted); font-style: italic; font-size: 14px; }
 
 /* ===== КАЗНА ===== */
-.wallet-card { background: linear-gradient(135deg, #1a1a1a, #222); border: 1px solid #333; border-radius: 16px; padding: 30px; text-align: center; margin-bottom: 24px; }
-.wallet-label { color: #888; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-.wallet-value { font-family: 'Cinzel', serif; font-size: 48px; color: #e8c8a0; font-weight: bold; }
-.wallet-value span { font-size: 18px; color: #888; font-family: 'Inter', sans-serif; }
-.grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
-.card-title { font-family: 'Cinzel', serif; font-size: 16px; margin: 0 0 16px; }
-.section-title { font-family: 'Cinzel', serif; font-size: 18px; color: #e8c8a0; margin-bottom: 16px; }
+.wallet-card {
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 20px; text-align: center; position: relative; overflow: hidden; flex-shrink: 0;
+}
+.wallet-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--gold); opacity: 0.6; }
+.wallet-label { color: var(--muted); font-family: 'Cinzel', serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 8px; font-weight: 700; }
+.wallet-value { font-family: 'Cinzel', serif; font-size: 38px; color: var(--gold); font-weight: 700; line-height: 1; }
+.wallet-value span { font-size: 13px; color: var(--muted); font-family: 'Crimson Text', serif; font-weight: 400; margin-left: 6px; letter-spacing: 0.08em; text-transform: uppercase; }
+.wallet-split { display: flex; justify-content: center; gap: 24px; margin-top: 10px; font-size: 14px; font-weight: 600; }
+.grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex-shrink: 0; }
+.card-title { font-family: 'Cinzel', serif; font-size: 15px; margin: 0 0 12px; font-weight: 700; letter-spacing: 0.04em; }
+.section-title { font-family: 'Cinzel', serif; font-size: 16px; color: var(--gold); margin-bottom: 0; font-weight: 700; letter-spacing: 0.04em; flex-shrink: 0; }
 
-/* ===== КРАФТЫ (ПРАВАЯ КОЛОНКА) ===== */
-.craft-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a2a; }
-.craft-header h3 { margin: 0; font-family: 'Cinzel', serif; color: #e8c8a0; font-size: 18px; }
-.recipe-form { padding: 20px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a; }
-.mb-2 { margin-bottom: 8px; }
-.mb-4 { margin-bottom: 16px; }
-.text-sm { font-size: 13px; padding: 8px 12px; height: auto; }
-.w-full { width: 100%; }
-.ingredient-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
-.flex-1 { flex: 1; }
-.w-16 { width: 64px; }
-.form-actions { display: flex; gap: 8px; margin-top: 16px; }
-.form-actions button { flex: 1; }
+.table-wrapper { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex: 1; }
+.table-wrapper.scroll-area { overflow: auto; }
+.data-table { width: 100%; border-collapse: collapse; text-align: left; }
+.data-table th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--bg-input); padding: 10px 14px; font-family: 'Cinzel', serif;
+  font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.1em; border-bottom: 1px solid var(--border);
+}
+.data-table td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.07); font-size: 14px; color: var(--text); }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover { background: rgba(255,255,255,0.02); }
 
-.recipe-list { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-.recipe-card { background: #222; border: 1px solid #333; border-radius: 12px; padding: 16px; transition: 0.2s; }
-.recipe-card.can-craft { border-color: rgba(44, 110, 44, 0.5); background: rgba(44, 110, 44, 0.05); }
-.recipe-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.recipe-name { display: flex; align-items: center; gap: 8px; font-family: 'Cinzel', serif; font-weight: 600; color: #e8c8a0; }
+/* ===== КРАФТЫ ===== */
+.crafts-toolbar { display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.recipe-form-wide { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.recipe-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px; align-content: start; flex: 1; padding-right: 6px;
+}
+.recipe-card {
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; transition: border-color 0.2s ease;
+}
+.recipe-card:hover { border-color: var(--border-strong); }
+.recipe-card.can-craft { border-color: var(--gold-border); background: linear-gradient(180deg, var(--gold-dim), var(--bg-panel)); }
+.recipe-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 8px; }
+.recipe-name { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text); font-size: 16px; flex-wrap: wrap; }
 .recipe-ings { display: flex; flex-wrap: wrap; gap: 6px; }
-.ing-tag { background: #2a2a2a; padding: 4px 10px; border-radius: 6px; font-size: 12px; color: #aaa; border: 1px solid #333; }
-.can-craft .ing-tag { background: rgba(44, 110, 44, 0.2); border-color: transparent; color: #80c080; }
-.empty-state { text-align: center; color: #666; font-style: italic; margin-top: 20px; }
+.ing-tag {
+  background: var(--bg-input); padding: 3px 8px; border-radius: 5px; font-size: 12px;
+  color: var(--muted); border: 1px solid var(--border);
+}
+.ing-tag.missing { background: var(--red-dim); border-color: rgba(239,106,106,0.3); color: var(--red); }
+.can-craft .ing-tag { background: var(--gold-dim); border-color: var(--gold-border); color: var(--gold); }
+.can-craft .ing-tag.missing { background: var(--red-dim); border-color: rgba(239,106,106,0.3); color: var(--red); }
+.ing-tag em { font-style: normal; opacity: 0.75; margin-left: 3px; }
+.craft-btn { width: 100%; margin-top: 12px; height: 32px; padding: 0 12px; font-size: 11px; }
+.craft-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+
+.craft-header { padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.craft-header h3 { margin: 0; font-family: 'Cinzel', serif; color: var(--gold); font-size: 16px; font-weight: 700; letter-spacing: 0.04em; }
+.recipe-list { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.empty-state { text-align: center; color: var(--muted); font-style: italic; margin-top: 24px; font-size: 14px; }
 
 /* ===== МОДАЛКИ ===== */
-.modal-overlay.nested { background: rgba(0,0,0,0.8); z-index: 10001; }
-.modal-card { background: #1a1a1a; border: 1px solid #333; border-radius: 16px; padding: 24px; width: 400px; max-width: 90%; }
-.modal-card h3 { margin: 0 0 20px; font-family: 'Cinzel', serif; color: #e8c8a0; text-align: center; }
-.batch-list { max-height: 300px; overflow-y: auto; margin-bottom: 16px; }
-.batch-row { display: flex; gap: 8px; margin-bottom: 8px; }
-.batch-row select { flex: 1; }
-.batch-row input { flex: 1; }
+.modal-overlay.nested { background: rgba(0, 0, 0, 0.75); z-index: 10001; }
+.modal-card {
+  background: var(--bg-panel); border: 1px solid var(--border-strong); border-radius: 10px;
+  padding: 24px; width: 400px; max-width: 90%;
+}
+.modal-card h3 { margin: 0 0 18px; font-family: 'Cinzel', serif; color: var(--gold); text-align: center; font-size: 18px; font-weight: 700; }
+.modal-card .input-group { margin-bottom: 12px; }
+.batch-list { max-height: 280px; padding-right: 6px; }
+.form-actions { display: flex; gap: 10px; margin-top: 18px; }
+.form-actions button { flex: 1; }
+
+/* ===== РЯД ИНГРЕДИЕНТА: всё в одну строку ===== */
+.ingredient-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.ingredient-row select {
+  flex: 1;
+  min-width: 0;
+  width: auto;          /* перебиваем глобальный width: 100% */
+}
+.ingredient-row input {
+  flex: none;
+  width: 64px;          /* фиксированная колонка под количество */
+}
+.ingredient-row .btn-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+/* ===== РЯД ПАРТИИ: всё в одну строку ===== */
+.batch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.batch-row select {
+  flex: 0 0 100px;
+  min-width: 0;
+  width: auto;
+}
+.batch-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+.batch-row input[type="number"] {
+  flex: none;
+  width: 64px;
+}
+.batch-row .btn-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+/* ===== УТИЛИТЫ ===== */
+.mb-2 { margin-bottom: 8px; }
+.mb-4 { margin-bottom: 14px; }
+.text-sm { font-size: 11px; height: 32px; }
+.w-full { width: 100%; }
+
+/* ===== АДАПТИВ ===== */
+@media (max-width: 1100px) {
+  .admin-content { grid-template-columns: 180px 1fr; }
+  .craft-section { display: none; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 720px) {
+  .admin-content { grid-template-columns: 1fr; }
+  .side-nav { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 10px; }
+  .side-nav button { width: auto; white-space: nowrap; }
+  .grid-2col, .kpi-row { grid-template-columns: 1fr; }
+  .form-row { flex-direction: column; align-items: stretch; }
+}
 </style>
